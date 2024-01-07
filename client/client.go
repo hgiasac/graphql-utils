@@ -15,7 +15,7 @@ type client struct {
 }
 
 // NewClient creates a new custom graphql client
-func NewClient(url string, httpClient graphql.Doer) Client {
+func NewClient(url string, httpClient graphql.Doer) *client {
 	return &client{
 		Client: graphql.NewClient(url, httpClient),
 		logger: log.Level(zerolog.GlobalLevel()),
@@ -23,7 +23,7 @@ func NewClient(url string, httpClient graphql.Doer) Client {
 }
 
 // WithLogger creates a new client with the input logger
-func (c *client) WithLogger(logger zerolog.Logger) Client {
+func (c *client) WithLogger(logger zerolog.Logger) *client {
 	return &client{
 		Client: c.Client,
 		logger: logger,
@@ -31,7 +31,7 @@ func (c *client) WithLogger(logger zerolog.Logger) Client {
 }
 
 // WithDebug set debug mode
-func (c *client) WithDebug(debug bool) Client {
+func (c *client) WithDebug(debug bool) *client {
 	l := c.logger
 	if debug {
 		l = l.Level(zerolog.DebugLevel)
