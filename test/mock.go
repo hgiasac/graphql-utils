@@ -6,10 +6,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/hasura/go-graphql-client"
 )
+
+type MockGraphQLResponse struct {
+	Request  graphql.GraphQLRequestPayload
+	Response any
+}
 
 type MockDoType func(req *http.Request) (*http.Response, error)
 
@@ -38,7 +44,60 @@ func NewMockHTTPClient(jsonResp string, statusCode int) *MockHTTPClient {
 
 // NewMockGraphQLClient creates a mock graphql client of type HTTPClient where the mock Do()
 // implementation returns the response and status code provided as params to the func.
-func NewMockGraphQLClient(responses map[string]string) *graphql.Client {
+func NewMockGraphQLClient(responses []MockGraphQLResponse) *graphql.Client {
+	preparedQueries := make([]MockGraphQLResponse, 0, len(responses))
+	for _, q := range responses {
+		q.Request.Query = strings.TrimSpace(q.Request.Query)
+		q.Request.OperationName = strings.TrimSpace(q.Request.OperationName)
+
+		preparedQueries = append(preparedQueries, q)
+	}
+	return graphql.NewClient("/v1/graphql", &MockHTTPClient{
+		MockDo: func(req *http.Request) (*http.Response, error) {
+
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return responseGraphQLError(err, []byte("io.ReadAll")), nil
+			}
+
+			var reqBody graphql.GraphQLRequestPayload
+			err = json.Unmarshal(bodyBytes, &reqBody)
+
+			if err != nil {
+				return responseGraphQLError(err, bodyBytes), nil
+			}
+
+			var jsonResp []byte
+
+			for _, resp := range responses {
+				if resp.Request.Query != strings.TrimSpace(reqBody.Query) {
+					continue
+				}
+
+				if reflect.DeepEqual(resp.Request.Variables, reqBody.Variables) {
+					jsonResp, err = json.Marshal(resp.Response)
+					if err != nil {
+						return responseGraphQLError(err, bodyBytes), nil
+					}
+				}
+			}
+
+			if len(jsonResp) == 0 {
+				return responseGraphQLError(fmt.Errorf("query not found in prepared responses: %+v", preparedQueries), bodyBytes), nil
+			}
+
+			r := io.NopCloser(bytes.NewReader([]byte(jsonResp)))
+			return &http.Response{
+				StatusCode: 200,
+				Body:       r,
+			}, nil
+		},
+	})
+}
+
+// NewMockGraphQLClientSingle creates a mock graphql client with response map
+// Find responses by query string without validating variables
+func NewMockGraphQLClientQueries(responses map[string]string) *graphql.Client {
 	preparedQueries := make([]string, 0, len(responses))
 	for q := range responses {
 		preparedQueries = append(preparedQueries, q)
