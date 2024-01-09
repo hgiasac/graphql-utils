@@ -74,7 +74,7 @@ func NewMockGraphQLClient(responses []MockGraphQLResponse) *graphql.Client {
 					continue
 				}
 
-				if reflect.DeepEqual(resp.Request.Variables, reqBody.Variables) {
+				if deepEqual(resp.Request.Variables, reqBody.Variables) {
 					jsonResp, err = json.Marshal(resp.Response)
 					if err != nil {
 						return responseGraphQLError(err, bodyBytes), nil
@@ -210,4 +210,20 @@ func responseGraphQLError(err error, requestBody []byte) *http.Response {
 		StatusCode: 400,
 		Body:       r,
 	}
+}
+
+func deepEqual(v1, v2 interface{}) bool {
+	if reflect.DeepEqual(v1, v2) {
+		return true
+	}
+	var x1 interface{}
+	bytesA, _ := json.Marshal(v1)
+	_ = json.Unmarshal(bytesA, &x1)
+	var x2 interface{}
+	bytesB, _ := json.Marshal(v2)
+	_ = json.Unmarshal(bytesB, &x2)
+	if reflect.DeepEqual(x1, x2) {
+		return true
+	}
+	return false
 }
