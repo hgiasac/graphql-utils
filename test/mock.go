@@ -167,12 +167,6 @@ func NewMockGraphQLAffectedRowsResponse(mutationName string, affectedRows int) s
 	}, nil)
 }
 
-type graphqlRequestPayload struct {
-	Query         string         `json:"query"`
-	Variables     map[string]any `json:"errors"`
-	OperationName string         `json:"operationName"`
-}
-
 type graphqlResponse struct {
 	Data   any             `json:"data,omitempty"`
 	Errors []graphql.Error `json:"errors,omitempty"`
