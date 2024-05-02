@@ -2,10 +2,10 @@ package test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/hasura/go-graphql-client"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestNewMockGraphQLClientQueries(t *testing.T) {
@@ -29,15 +29,15 @@ func TestNewMockGraphQLClientQueries(t *testing.T) {
 		}
 	}
 
-	assert.NoError(t, client.Query(context.TODO(), &userQuery, nil))
-	assert.Equal(t, 1, userQuery.User.ID)
+	assertNoError(t, client.Query(context.TODO(), &userQuery, nil))
+	assertEqual(t, 1, userQuery.User.ID)
 
-	assert.NoError(t, client.Query(context.TODO(), &userQuery, map[string]any{
+	assertNoError(t, client.Query(context.TODO(), &userQuery, map[string]any{
 		"foo": "bar",
 	}, graphql.OperationName("GetUser")))
-	assert.Equal(t, 2, userQuery.User.ID)
+	assertEqual(t, 2, userQuery.User.ID)
 
-	assert.ErrorContains(t, client.Query(context.TODO(), &userQuery, map[string]any{
+	assertError(t, client.Query(context.TODO(), &userQuery, map[string]any{
 		"foo": "bar",
 	}, graphql.OperationName("GetNotExistUser")), "validation-failed")
 }
@@ -49,16 +49,16 @@ func TestNewMockGraphQLClientSingle(t *testing.T) {
 		}
 	}
 	clientStr := NewMockGraphQLClientSingle(`{"data": {"user": {"id": 1}}}`, nil)
-	assert.NoError(t, clientStr.Query(context.TODO(), &userQuery, nil))
-	assert.Equal(t, 1, userQuery.User.ID)
+	assertNoError(t, clientStr.Query(context.TODO(), &userQuery, nil))
+	assertEqual(t, 1, userQuery.User.ID)
 
 	clientObj := NewMockGraphQLClientSingle(map[string]any{
 		"user": map[string]any{
 			"id": 2,
 		},
 	}, nil)
-	assert.NoError(t, clientObj.Query(context.TODO(), &userQuery, nil))
-	assert.Equal(t, 2, userQuery.User.ID)
+	assertNoError(t, clientObj.Query(context.TODO(), &userQuery, nil))
+	assertEqual(t, 2, userQuery.User.ID)
 }
 
 func TestNewMockGraphQLAffectedRowsResponse(t *testing.T) {
@@ -68,8 +68,8 @@ func TestNewMockGraphQLAffectedRowsResponse(t *testing.T) {
 		} `graphql:"insert_user(objects: $objects)"`
 	}
 	clientStr := NewMockGraphQLClientSingle(NewMockGraphQLAffectedRowsResponse("insert_user", 1), nil)
-	assert.NoError(t, clientStr.Query(context.TODO(), &userQuery, nil))
-	assert.Equal(t, 1, userQuery.InsertUser.AffectedRows)
+	assertNoError(t, clientStr.Query(context.TODO(), &userQuery, nil))
+	assertEqual(t, 1, userQuery.InsertUser.AffectedRows)
 }
 
 func TestNewMockGraphQLClient(t *testing.T) {
@@ -110,18 +110,40 @@ func TestNewMockGraphQLClient(t *testing.T) {
 		}
 	}
 
-	assert.NoError(t, client.Query(context.TODO(), &userQuery, nil))
-	assert.Equal(t, 1, userQuery.User.ID)
+	assertNoError(t, client.Query(context.TODO(), &userQuery, nil))
+	assertEqual(t, 1, userQuery.User.ID)
 
-	assert.ErrorContains(t, client.Query(context.TODO(), &userQuery, nil, graphql.OperationName("GetUser")), "validation-failed")
-	assert.Equal(t, 1, userQuery.User.ID)
+	assertError(t, client.Query(context.TODO(), &userQuery, nil, graphql.OperationName("GetUser")), "validation-failed")
+	assertEqual(t, 1, userQuery.User.ID)
 
-	assert.NoError(t, client.Query(context.TODO(), &userQuery, map[string]any{
+	assertNoError(t, client.Query(context.TODO(), &userQuery, map[string]any{
 		"foo": "bar",
 	}, graphql.OperationName("GetUser")))
-	assert.Equal(t, 2, userQuery.User.ID)
+	assertEqual(t, 2, userQuery.User.ID)
 
-	assert.ErrorContains(t, client.Query(context.TODO(), &userQuery, map[string]any{
+	assertError(t, client.Query(context.TODO(), &userQuery, map[string]any{
 		"foo": "bar",
 	}, graphql.OperationName("GetNotExistUser")), "validation-failed")
+}
+
+func assertNoError(t *testing.T, err error) {
+	if err != nil {
+		t.Errorf("expected no error, got: %v", err)
+	}
+}
+
+func assertError(t *testing.T, err error, message string) {
+	if err == nil {
+		t.Error("expected error, got: nil")
+	}
+
+	if !strings.Contains(err.Error(), message) {
+		t.Errorf("expected error content: %v, got: %s", err, message)
+	}
+}
+
+func assertEqual(t *testing.T, expected any, got any) {
+	if !deepEqual(expected, got) {
+		t.Errorf("not equal, expected: %+v, got: %+v", expected, got)
+	}
 }
