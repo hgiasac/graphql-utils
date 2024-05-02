@@ -167,12 +167,6 @@ func NewMockGraphQLAffectedRowsResponse(mutationName string, affectedRows int) s
 	}, nil)
 }
 
-type graphqlRequestPayload struct {
-	Query         string         `json:"query"`
-	Variables     map[string]any `json:"errors"`
-	OperationName string         `json:"operationName"`
-}
-
 type graphqlResponse struct {
 	Data   any             `json:"data,omitempty"`
 	Errors []graphql.Error `json:"errors,omitempty"`
@@ -222,8 +216,5 @@ func deepEqual(v1, v2 interface{}) bool {
 	var x2 interface{}
 	bytesB, _ := json.Marshal(v2)
 	_ = json.Unmarshal(bytesB, &x2)
-	if reflect.DeepEqual(x1, x2) {
-		return true
-	}
-	return false
+	return reflect.DeepEqual(x1, x2)
 }

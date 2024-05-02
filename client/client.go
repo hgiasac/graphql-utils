@@ -2,43 +2,30 @@ package client
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/hasura/go-graphql-client"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 // client represents a new custom graphql client
 type client struct {
 	*graphql.Client
-	logger zerolog.Logger
+	logger *slog.Logger
 }
 
 // NewClient creates a new custom graphql client
 func NewClient(url string, httpClient graphql.Doer) *client {
 	return &client{
 		Client: graphql.NewClient(url, httpClient),
-		logger: log.Level(zerolog.GlobalLevel()),
+		logger: slog.Default(),
 	}
 }
 
 // WithLogger creates a new client with the input logger
-func (c *client) WithLogger(logger zerolog.Logger) *client {
+func (c *client) WithLogger(logger *slog.Logger) *client {
 	return &client{
 		Client: c.Client,
 		logger: logger,
-	}
-}
-
-// WithDebug set debug mode
-func (c *client) WithDebug(debug bool) *client {
-	l := c.logger
-	if debug {
-		l = l.Level(zerolog.DebugLevel)
-	}
-	return &client{
-		Client: c.Client.WithDebug(debug),
-		logger: l,
 	}
 }
 
@@ -90,36 +77,40 @@ func (c *client) ExecRaw(ctx context.Context, query string, variables map[string
 }
 
 func (c *client) exec(ctx context.Context, query string, q any, variables map[string]any, msg string, options ...graphql.Option) error {
-	logEvent := c.logger.Debug()
-	isDebug := c.logger.GetLevel() <= zerolog.DebugLevel
+	var logAttrs []any
+	isDebug := c.logger.Enabled(ctx, slog.LevelDebug)
 	if isDebug {
-		logEvent = logEvent.Interface("variables", variables).Interface("query", query)
+		logAttrs = append(logAttrs, slog.Any("variables", variables), slog.String("query", query))
 	}
 	err := c.Client.Exec(ctx, query, q, variables, options...)
 
 	if isDebug {
 		if err != nil {
-			logEvent.Err(err).Msg(msg)
+			logAttrs = append(logAttrs, slog.Any("error", err))
+			c.logger.Error(msg, logAttrs...)
 		} else {
-			logEvent.Interface("response", q).Msg(msg)
+			logAttrs = append(logAttrs, slog.Any("response", q))
+			c.logger.Error(msg, logAttrs...)
 		}
 	}
 	return err
 }
 
 func (c *client) execRaw(ctx context.Context, query string, variables map[string]any, msg string, options ...graphql.Option) ([]byte, error) {
-	logEvent := c.logger.Debug()
-	isDebug := c.logger.GetLevel() <= zerolog.DebugLevel
+	var logAttrs []any
+	isDebug := c.logger.Enabled(ctx, slog.LevelDebug)
 	if isDebug {
-		logEvent = logEvent.Interface("variables", variables).Interface("query", query)
+		logAttrs = append(logAttrs, slog.Any("variables", variables), slog.String("query", query))
 	}
 	bs, err := c.Client.ExecRaw(ctx, query, variables, options...)
 
 	if isDebug {
 		if err != nil {
-			logEvent.Err(err).Msg(msg)
+			logAttrs = append(logAttrs, slog.Any("error", err))
+			c.logger.Error(msg, logAttrs...)
 		} else {
-			logEvent.RawJSON("response", bs).Msg(msg)
+			logAttrs = append(logAttrs, slog.String("response", string(bs)))
+			c.logger.Error(msg, logAttrs...)
 		}
 	}
 	return bs, err
