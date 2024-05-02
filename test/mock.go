@@ -216,8 +216,5 @@ func deepEqual(v1, v2 interface{}) bool {
 	var x2 interface{}
 	bytesB, _ := json.Marshal(v2)
 	_ = json.Unmarshal(bytesB, &x2)
-	if reflect.DeepEqual(x1, x2) {
-		return true
-	}
-	return false
+	return reflect.DeepEqual(x1, x2)
 }
